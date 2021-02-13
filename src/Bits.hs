@@ -28,7 +28,7 @@ instance Show Bits where
           countdown _ [] = []
           countdown m (x : xss) = x : countdown (m -1) xss
 
-bitsFrom :: Int -> [Bit]
+bitsFrom :: (Integral a) => a -> [Bit]
 bitsFrom 0 = [zero]
 bitsFrom 1 = [one]
 bitsFrom v = bitsFrom (v `div` 2) ++ [odd v]

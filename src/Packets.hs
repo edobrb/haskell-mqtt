@@ -1,7 +1,9 @@
 module Packets where
 
 import Bits
+import qualified Codec.Binary.UTF8.String as UTF8
 import Data.Maybe
+import Data.Word (Word8)
 import Utils
 
 data ConnectReturnCode
@@ -42,7 +44,15 @@ packetIdentifier :: Int -> [Bit]
 packetIdentifier n = padTo 16 (bitsFrom n)
 
 stringToBits :: String -> [Bit]
-stringToBits s = [] ++ [] ++ []
+stringToBits s = msb ++ lsb ++ d
+  where
+    encoded = reverse (concatMap UTF8.encodeChar s)
+    l = length encoded
+    msb = padTo 8 (bitsFrom (l `div` 256))
+    lsb = padTo 8 (bitsFrom (l `mod` 256))
+    r :: [Bit] -> Word8 -> [Bit]
+    r bits w = padTo 8 (bitsFrom w) ++ bits
+    d = foldl r [] encoded
 
 qosToBits :: QoS -> [Bit]
 qosToBits QoS0 = [zero, zero]
@@ -53,9 +63,8 @@ contains :: (Eq a) => Maybe a -> a -> Bool
 contains (Just x) y = x == y
 contains _ _ = False
 
-packetToByte :: Packet -> Bits
-packetToByte p@Connect {} =
-  Bits (controlPacketType 1 ++ zeros 4 ++ remainingLength ++ packet)
+packetToByte :: Packet -> [Bit]
+packetToByte p@Connect {} = controlPacketType 1 ++ zeros 4 ++ remainingLength ++ packet
   where
     remainingLength = toVariableLengthInteger (length packet `div` 8)
     packet = protocolName ++ protocolLevel ++ flags ++ keepAliveBits ++ clientIdBits ++ willTopicBits ++ willPayloadBits ++ usernameBits ++ passwordBits
@@ -67,21 +76,19 @@ packetToByte p@Connect {} =
     willQoS = qosToBits (maybe QoS0 qos (willMessage p))
     willFlag = isJust (willMessage p)
     flags = [usernameFlag, passwordFlag, willRetain] ++ willQoS ++ [willFlag, cleanSession p, zero]
-    keepAliveBits = padTo 16 (bitsFrom (keepAliveSeconds p))  
+    keepAliveBits = padTo 16 (bitsFrom (keepAliveSeconds p))
     clientIdBits = stringToBits (clientId p)
     willTopicBits = maybe [] (stringToBits . topic) (willMessage p)
     willPayloadBits = maybe [] payload (willMessage p)
     usernameBits = maybe [] (stringToBits . username) (credentials p)
     passwordBits = maybe [] stringToBits (credentials p >>= password)
-    
-packetToByte (Connack session code) =
-  Bits (controlPacketType 2 ++ zeros 4 ++ remainingLength ++ sessionPresentBits ++ returnCodeBits)
+packetToByte p@Connack {} = controlPacketType 2 ++ zeros 4 ++ remainingLength ++ packet
   where
-    remainingLength = padTo 8 (bitsFrom 2)
-    --remainingLength = toVariableLengthInteger ((length sessionPresentBits + length returnCodeBits) `div` 8)
-    sessionPresentBits = padTo 8 [session]
-    returnCodeBits = padTo 8 (bitsFrom (fromEnum code))
-packetToByte _ = Bits []
+    remainingLength = padTo 8 (bitsFrom (2 :: Int))
+    packet = sessionPresentBits ++ returnCodeBits
+    sessionPresentBits = padTo 8 [sessionPresent p]
+    returnCodeBits = padTo 8 (bitsFrom (fromEnum (returnCode p)))
+packetToByte _ = []
 
 c :: Bits
-c = packetToByte (Connack False ConnectionAccepted)
+c = Bits (packetToByte (Connect (Protocol "MQTT" 4) False 10 "a" Nothing Nothing))

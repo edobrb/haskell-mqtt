@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6c4ae68bc1ea69c46fb3ccfeb27f55726e3ca58ce8c12b15bee7e612bb9e3056
+-- hash: c72c27c73ac733aec5e11affc14d83e72c89b895a34318068b6dc849291770f0
 
 name:           haskell-mqtt
 version:        0.1.0.0
@@ -39,6 +39,8 @@ library
       base >=4.7 && <5
     , bytestring ==0.10.12.0
     , split ==0.2.3.4
+    , text ==1.2.4.1
+    , utf8-string ==1.0.2
   default-language: Haskell2010
 
 executable haskell-mqtt-exe
@@ -53,6 +55,8 @@ executable haskell-mqtt-exe
     , bytestring ==0.10.12.0
     , haskell-mqtt
     , split ==0.2.3.4
+    , text ==1.2.4.1
+    , utf8-string ==1.0.2
   default-language: Haskell2010
 
 test-suite haskell-mqtt-test
@@ -68,4 +72,6 @@ test-suite haskell-mqtt-test
     , bytestring ==0.10.12.0
     , haskell-mqtt
     , split ==0.2.3.4
+    , text ==1.2.4.1
+    , utf8-string ==1.0.2
   default-language: Haskell2010
