@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: dbc3bd12b88002feba5a7703d576f37fb9794658c9424781aa54a414610d6e8d
+-- hash: 6c4ae68bc1ea69c46fb3ccfeb27f55726e3ca58ce8c12b15bee7e612bb9e3056
 
 name:           haskell-mqtt
 version:        0.1.0.0
@@ -30,6 +30,7 @@ library
       Bits
       Lib
       Packets
+      Utils
   other-modules:
       Paths_haskell_mqtt
   hs-source-dirs:

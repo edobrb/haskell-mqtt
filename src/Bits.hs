@@ -41,6 +41,7 @@ bitsToInt bits = sum (map (\(i, v) -> v * (1 `shiftL` i)) bitsIndex)
 padTo :: Int -> [Bit] -> [Bit]
 padTo n xs
   | d > 0 = replicate d zero ++ xs
+  | d < 0 = reverse (take n (reverse xs))
   | otherwise = xs
   where
     d = n - length xs
