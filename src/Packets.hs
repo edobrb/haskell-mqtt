@@ -38,21 +38,21 @@ data Packet
   deriving (Eq, Show)
 
 controlPacketType :: Int -> [Bit]
-controlPacketType n = padTo 4 (bitsFrom n)
+controlPacketType = toFixedBits 4
 
 packetIdentifier :: Int -> [Bit]
-packetIdentifier n = padTo 16 (bitsFrom n)
+packetIdentifier = toFixedBits 16
 
 stringToBits :: String -> [Bit]
 stringToBits s = msb ++ lsb ++ d
   where
-    encoded = reverse (concatMap UTF8.encodeChar s)
-    l = length encoded
-    msb = padTo 8 (bitsFrom (l `div` 256))
-    lsb = padTo 8 (bitsFrom (l `mod` 256))
-    r :: [Bit] -> Word8 -> [Bit]
-    r bits w = padTo 8 (bitsFrom w) ++ bits
-    d = foldl r [] encoded
+    encoded = reverse $ concatMap UTF8.encodeChar s
+    encodedLength = length encoded
+    msb = toFixedBits 8 $ encodedLength `div` 256
+    lsb = toFixedBits 8 $ encodedLength `mod` 256
+    reducer :: [Bit] -> Word8 -> [Bit]
+    reducer bits word = toFixedBits 8 word ++ bits
+    d = foldl reducer [] encoded
 
 qosToBits :: QoS -> [Bit]
 qosToBits QoS0 = [zero, zero]
@@ -63,32 +63,35 @@ contains :: (Eq a) => Maybe a -> a -> Bool
 contains (Just x) y = x == y
 contains _ _ = False
 
-packetToByte :: Packet -> [Bit]
-packetToByte p@Connect {} = controlPacketType 1 ++ zeros 4 ++ remainingLength ++ packet
+packetToBits :: Packet -> [Bit]
+packetToBits p@Connect {} = controlPacketType 1 ++ zeros 4 ++ remainingLength ++ packet
   where
-    remainingLength = toVariableLengthInteger (length packet `div` 8)
+    remainingLength = toVariableLengthInteger $ length packet `div` 8
     packet = protocolName ++ protocolLevel ++ flags ++ keepAliveBits ++ clientIdBits ++ willTopicBits ++ willPayloadBits ++ usernameBits ++ passwordBits
-    protocolName = stringToBits (name (protocol p))
-    protocolLevel = padTo 8 (bitsFrom (level (protocol p)))
-    usernameFlag = isJust (credentials p)
-    passwordFlag = isJust (credentials p >>= password)
+    protocolName = stringToBits $ name $ protocol p
+    protocolLevel = toFixedBits 8 $ level $ protocol p
+    usernameFlag = isJust $ credentials p
+    passwordFlag = isJust $ credentials p >>= password
     willRetain = fmap retain (willMessage p) `contains` True
-    willQoS = qosToBits (maybe QoS0 qos (willMessage p))
-    willFlag = isJust (willMessage p)
+    willQoS = qosToBits $ maybe QoS0 qos (willMessage p)
+    willFlag = isJust $ willMessage p
     flags = [usernameFlag, passwordFlag, willRetain] ++ willQoS ++ [willFlag, cleanSession p, zero]
-    keepAliveBits = padTo 16 (bitsFrom (keepAliveSeconds p))
-    clientIdBits = stringToBits (clientId p)
+    keepAliveBits = toFixedBits 16 $ keepAliveSeconds p
+    clientIdBits = stringToBits $ clientId p
     willTopicBits = maybe [] (stringToBits . topic) (willMessage p)
     willPayloadBits = maybe [] payload (willMessage p)
     usernameBits = maybe [] (stringToBits . username) (credentials p)
     passwordBits = maybe [] stringToBits (credentials p >>= password)
-packetToByte p@Connack {} = controlPacketType 2 ++ zeros 4 ++ remainingLength ++ packet
+packetToBits p@Connack {} = controlPacketType 2 ++ zeros 4 ++ remainingLength ++ packet
   where
-    remainingLength = padTo 8 (bitsFrom (2 :: Int))
+    remainingLength = zeros 6 ++ [one, zero]
     packet = sessionPresentBits ++ returnCodeBits
-    sessionPresentBits = padTo 8 [sessionPresent p]
-    returnCodeBits = padTo 8 (bitsFrom (fromEnum (returnCode p)))
-packetToByte _ = []
+    sessionPresentBits = zeros 7 ++ [sessionPresent p]
+    returnCodeBits = toFixedBits 8 $ fromEnum $ returnCode p
+packetToBits _ = []
+
+bitsToPacket :: [Bit] -> Maybe Packet
+bitsToPacket bits = Nothing
 
 c :: Bits
-c = Bits (packetToByte (Connect (Protocol "MQTT" 4) False 10 "a" Nothing Nothing))
+c = Bits (packetToBits (Connect (Protocol "MQTT" 4) False 10 "a" Nothing Nothing))

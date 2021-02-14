@@ -5,7 +5,7 @@ import Data.List.Split
 
 toVariableLengthInteger :: Int -> [Bit]
 toVariableLengthInteger n
-  | d == 0 = padTo 8 (bitsFrom r)
+  | d == 0 = padTo 8 (toBits r)
   | otherwise = (one : tail (toVariableLengthInteger r)) ++ toVariableLengthInteger d
   where
     d = n `div` 128

@@ -4,9 +4,9 @@ import Data.Bits (shiftL)
 
 type Bit = Bool
 
-
 zero :: Bit
 zero = False
+
 one :: Bit
 one = True
 
@@ -28,15 +28,25 @@ instance Show Bits where
           countdown _ [] = []
           countdown m (x : xss) = x : countdown (m -1) xss
 
-bitsFrom :: (Integral a) => a -> [Bit]
-bitsFrom 0 = [zero]
-bitsFrom 1 = [one]
-bitsFrom v = bitsFrom (v `div` 2) ++ [odd v]
+toBits :: (Integral a) => a -> [Bit]
+toBits 0 = [zero]
+toBits 1 = [one]
+toBits v = toBits (v `div` 2) ++ [odd v]
+
+toFixedBits :: (Integral a) => Int -> a -> [Bit]
+toFixedBits n x = padTo n $ toBits x
+
+bitsToInteger :: [Bit] -> Integer
+bitsToInteger bits = sum $ map (\(i, v) -> v * ((1 :: Integer) `shiftL` i)) bitsWithIndex
+  where
+    bitsWithIndex = zip [0 ..] (reverse $ map boolToInteger bits)
+    boolToInteger True = 1 :: Integer
+    boolToInteger False = 0 :: Integer
 
 bitsToInt :: [Bit] -> Int
-bitsToInt bits = sum (map (\(i, v) -> v * (1 `shiftL` i)) bitsIndex)
+bitsToInt bits = sum $ map (\(i, v) -> v * (1 `shiftL` i)) bitsWithIndex
   where
-    bitsIndex = zip [0 ..] (reverse (map fromEnum bits))
+    bitsWithIndex = zip [0 ..] (reverse $ map fromEnum bits)
 
 padTo :: Int -> [Bit] -> [Bit]
 padTo n xs
@@ -45,3 +55,9 @@ padTo n xs
   | otherwise = xs
   where
     d = n - length xs
+
+toWord8 :: [Bit] -> [Bit]
+toWord8 = padTo 8
+
+toWord16 :: [Bit] -> [Bit]
+toWord16 = padTo 16
