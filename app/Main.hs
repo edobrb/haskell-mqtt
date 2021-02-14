@@ -4,4 +4,4 @@ import Lib
 import Packets
 
 main :: IO ()
-main = print c
+main = print lol
