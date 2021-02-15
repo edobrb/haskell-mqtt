@@ -14,6 +14,16 @@ data ConnectReturnCode
   | BadUsernameOrPassword
   | NotAuthorized
   deriving (Enum, Eq, Show)
+  
+toConnectReturnCode :: Int -> Maybe ConnectReturnCode
+toConnectReturnCode 0 = Just ConnectionAccepted
+toConnectReturnCode 1 = Just UnacceptableProtocolVersion
+toConnectReturnCode 2 = Just IdentifierRejected
+toConnectReturnCode 3 = Just ServerUnavailable
+toConnectReturnCode 4 = Just BadUsernameOrPassword
+toConnectReturnCode 5 = Just NotAuthorized
+toConnectReturnCode _ = Nothing
+
 
 data QoS = QoS0 | QoS1 | QoS2 deriving (Enum, Eq, Show)
 

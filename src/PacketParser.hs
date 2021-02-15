@@ -1,8 +1,8 @@
-{-# LANGUAGE LambdaCase #-}
-
 module PacketParser where
 
+import Bits
 import Control.Monad (ap, liftM)
+import Packets
 
 newtype Parser e r = Parser ([e] -> [(r, [e])])
 
@@ -26,6 +26,26 @@ next = Parser f
   where
     f [] = []
     f (c : cs) = [(c, cs)]
+
+-- | a parser that consume the first n elements or fails
+takes :: Int -> Parser e [e]
+takes n = Parser f
+  where
+    f xs
+      | length xs >= n = [splitAt n xs]
+      | otherwise = []
+
+-- | a parser that checks if there are at least n elements or fails
+peeks :: Int -> Parser e [e]
+peeks n = Parser f
+  where
+    f xs
+      | length xs >= n = [(take n xs, xs)]
+      | otherwise = []
+
+-- | a parser that skips the first n elements or fails
+skip :: Int -> Parser e ()
+skip n = do _ <- takes n; return ()
 
 -- | a parser that always fails
 empty :: Parser e r
@@ -60,5 +80,55 @@ many1 p = do a <- p; as <- many p; return (a : as)
 many :: Parser e r -> Parser e [r]
 many p = many1 p <|> return []
 
-test :: Parser Char String
-test = do a <- exacts "Hello"; b <- many1 (exact '!' <|> exact '?'); return (a ++ b)
+-- | continue if the condition is true, otherwise an empty parser is returned
+check :: Bool -> Parser e ()
+check True = Parser (\cs -> [((), cs)])
+check False = empty
+
+-- | continue if the Maybe is defined, otherwise an empty parser is returned
+get :: Maybe a -> Parser e a
+get (Just a) = Parser (\cs -> [(a, cs)])
+get Nothing = empty
+
+
+packetType :: Int -> Parser Bit Int
+packetType n = do bits <- takes 4; check (n == bitsToInt bits); return n
+
+connectReturnCode :: Parser Bit ConnectReturnCode
+connectReturnCode = do bits <- takes 8; get (toConnectReturnCode $ bitsToInt bits)
+
+variableLength :: Parser Bit Int
+variableLength = do
+  c1 <- next
+  b1 <- takes 7
+  if c1
+    then do
+      c2 <- next
+      b2 <- takes 7
+      if c2
+        then do
+          c3 <- next
+          b3 <- takes 7
+          if c3
+            then do
+              c4 <- next
+              b4 <- takes 7
+              if c4
+                then do empty
+                else return $ bitsToInt (b4 ++ b3 ++ b2 ++ b1)
+            else return $ bitsToInt (b3 ++ b2 ++ b1)
+        else return $ bitsToInt (b2 ++ b1)
+    else return $ bitsToInt b1
+    
+checkVariableLength :: Parser Bit Int
+checkVariableLength = do l <- variableLength; _ <- peeks l; return l
+
+connackParser :: Parser Bit Packet
+connackParser = do
+  _ <- packetType 2
+  _ <- exacts [zero, zero, zero, zero]
+  _ <- checkVariableLength
+  _ <- exacts (zeros 7)
+  session <- next
+  code <- connectReturnCode
+  return (Connack session code)
