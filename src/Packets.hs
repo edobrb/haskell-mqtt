@@ -5,6 +5,7 @@ import qualified Codec.Binary.UTF8.String as UTF8
 import Data.Maybe
 import Data.Word (Word8)
 import Utils
+import Data.Data (typeOf)
 
 data ConnectReturnCode
   = ConnectionAccepted
@@ -29,7 +30,7 @@ data QoS = QoS0 | QoS1 | QoS2 deriving (Enum, Eq, Show)
 
 data Protocol = Protocol {name :: String, level :: Int} deriving (Eq, Show)
 
-data Credential = Credential {username :: String, password :: Maybe String} deriving (Eq, Show)
+data Credential = Credential {username :: String, password :: Maybe [Bit]} deriving (Eq, Show)
 
 data ApplicationMessage = ApplicationMessage {retain :: Bool, qos :: QoS, topic :: String, payload :: [Bit]} deriving (Eq, Show)
 
@@ -46,6 +47,11 @@ data Packet
   | Puback {packedID :: Int}
   | Pubrec {packedID :: Int}
   deriving (Eq, Show)
+  
+connectPacketHeader :: [Bit]
+connectPacketHeader = controlPacketType 1 ++ zeros 4
+connackPacketHeader :: [Bit]
+connackPacketHeader = controlPacketType 2 ++ zeros 4
 
 controlPacketType :: Int -> [Bit]
 controlPacketType = toFixedBits 4
@@ -74,7 +80,7 @@ contains (Just x) y = x == y
 contains _ _ = False
 
 packetToBits :: Packet -> [Bit]
-packetToBits p@Connect {} = controlPacketType 1 ++ zeros 4 ++ remainingLength ++ packet
+packetToBits p@Connect {} = connectPacketHeader ++ remainingLength ++ packet
   where
     remainingLength = toVariableLengthInteger $ length packet `div` 8
     packet = protocolName ++ protocolLevel ++ flags ++ keepAliveBits ++ clientIdBits ++ willTopicBits ++ willPayloadBits ++ usernameBits ++ passwordBits
@@ -91,8 +97,8 @@ packetToBits p@Connect {} = controlPacketType 1 ++ zeros 4 ++ remainingLength ++
     willTopicBits = maybe [] (stringToBits . topic) (willMessage p)
     willPayloadBits = maybe [] payload (willMessage p)
     usernameBits = maybe [] (stringToBits . username) (credentials p)
-    passwordBits = maybe [] stringToBits (credentials p >>= password)
-packetToBits p@Connack {} = controlPacketType 2 ++ zeros 4 ++ remainingLength ++ packet
+    passwordBits = fromMaybe [] (password =<< credentials p)
+packetToBits p@Connack {} = connackPacketHeader ++ remainingLength ++ packet
   where
     remainingLength = zeros 6 ++ [one, zero]
     packet = sessionPresentBits ++ returnCodeBits

@@ -53,6 +53,14 @@ skip n = do _ <- takes n; return ()
 empty :: Parser e r
 empty = Parser (const [])
 
+-- | a parser which is always successful and consume no input
+continue :: Parser e ()
+continue = Parser (\cs -> [((), cs)])
+
+-- | a parser which is always successful and consume no input
+continueWith :: r -> Parser e r
+continueWith result = Parser (\cs -> [(result, cs)])
+
 -- | combine results of two parsers
 (+++) :: Parser e r -> Parser e r -> Parser e r
 pl +++ pr = Parser (\cs -> parse pl cs ++ parse pr cs)
@@ -84,7 +92,7 @@ many p = many1 p <|> return []
 
 -- | continue if the condition is true, otherwise an empty parser is returned
 check :: Bool -> Parser e ()
-check True = Parser (\cs -> [((), cs)])
+check True = continue
 check False = empty
 
 -- | continue if the Maybe is defined, otherwise an empty parser is returned
