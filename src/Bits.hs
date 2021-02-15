@@ -1,6 +1,8 @@
 module Bits where
 
 import Data.Bits (shiftL)
+import Data.List.Split
+import Data.Word (Word8)
 
 type Bit = Bool
 
@@ -36,17 +38,30 @@ toBits v = toBits (v `div` 2) ++ [odd v]
 toFixedBits :: (Integral a) => Int -> a -> [Bit]
 toFixedBits n x = padTo n $ toBits x
 
+bitToInteger :: Bool -> Integer
+bitToInteger True = 1 :: Integer
+bitToInteger False = 0 :: Integer
+
 bitsToInteger :: [Bit] -> Integer
 bitsToInteger bits = sum $ map (\(i, v) -> v * ((1 :: Integer) `shiftL` i)) bitsWithIndex
   where
-    bitsWithIndex = zip [0 ..] (reverse $ map boolToInteger bits)
-    boolToInteger True = 1 :: Integer
-    boolToInteger False = 0 :: Integer
+    bitsWithIndex = zip [0 ..] (reverse $ map bitToInteger bits)
 
 bitsToInt :: [Bit] -> Int
 bitsToInt bits = sum $ map (\(i, v) -> v * (1 `shiftL` i)) bitsWithIndex
   where
     bitsWithIndex = zip [0 ..] (reverse $ map fromEnum bits)
+
+bitsToWords :: [Bit] -> [Word8]
+bitsToWords bits = map bitsToWord8 $ chunksOf 8 bits
+
+bitsToWord8 :: [Bit] -> Word8
+bitsToWord8 bits = f $ reverse bits
+  where
+    f :: [Bit] -> Word8
+    f [] = 0
+    f (True : cs) = 1 + (f cs * 2)
+    f (False : cs) = f cs * 2
 
 padTo :: Int -> [Bit] -> [Bit]
 padTo n xs
