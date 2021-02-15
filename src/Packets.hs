@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Packets where
 
 import Bits
@@ -7,8 +5,6 @@ import qualified Codec.Binary.UTF8.String as UTF8
 import Data.Maybe
 import Data.Word (Word8)
 import Utils
-import Control.Applicative -- Otherwise you can't do the Applicative instance.
-import Control.Monad (liftM, ap)
 
 data ConnectReturnCode
   = ConnectionAccepted
@@ -105,34 +101,7 @@ minimumLength n as
   | length as >= n = (Just (), as)
   | otherwise = failure as
 
-newtype Parser a b = Parser (a -> [(b, a)])
 
-type BitParser b = Parser [Bit]
-
---type StringParser = Parser String
-newtype StringParser a = StringParser (String -> [(a, String)])
-
-parse :: StringParser a -> String -> [(a, String)]
-parse (StringParser f) = f
-
-instance Functor StringParser where
-  fmap = liftM
-
-instance Applicative StringParser where
-  pure  = return
-  (<*>) = ap
-  
-instance Monad StringParser where
-  return a = StringParser (\cs -> [(a, cs)])
-  p >>= k = StringParser (\cs -> concat [parse (k a) cs' | (a, cs') <- parse p cs])
-
-next :: StringParser Char
-next =
-  StringParser
-    ( \case
-        "" -> []
-        (c : cs) -> [(c, cs)]
-    )
 
 controlPacketTypeParser :: [Bit] -> (Maybe Int, [Bit])
 controlPacketTypeParser bits
