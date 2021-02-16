@@ -16,7 +16,7 @@ instance Applicative (Parser e) where
 
 instance Monad (Parser e) where
   return r = Parser (\cs -> [(r, cs)])
-  p >>= k = Parser (\cs -> concat [parse (k a) cs' | (a, cs') <- parse p cs])
+  p >>= k = Parser (concatMap (\(a, cs) -> parse (k a) cs) . parse p)
 
 -- | a parser that consume the first element or fails
 next :: Parser e e

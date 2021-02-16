@@ -18,6 +18,8 @@ connackParser = header connackPacketHeader body
 connectParser :: Parser Bit Packet
 connectParser = header connectPacketHeader body
   where
+    willMessageParser r q = do t <- string; p <- payloadData; return (ApplicationMessage r q t p)
+    credentialsParser hasPassword = do u <- string; p <- parseIf hasPassword payloadData; return (Credential u p)
     body = do
       protocolName <- string
       _ <- check (protocolName == "MQTT")
@@ -35,6 +37,3 @@ connectParser = header connectPacketHeader body
       credentialsV <- parseIf usernameFlagF $ credentialsParser passwordFlagF
       _ <- isAtEOF
       return (Connect (Protocol protocolName protocolLevel) cleanSessionF keepAlive clientIdValue credentialsV willMessageV)
-      where
-        willMessageParser r q = do t <- string; p <- payloadData; return (ApplicationMessage r q t p)
-        credentialsParser hasPassword = do u <- string; p <- parseIf hasPassword payloadData; return (Credential u p)
