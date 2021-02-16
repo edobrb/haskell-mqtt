@@ -1,10 +1,11 @@
 module MonadicParser where
 
 import Control.Monad (ap, liftM)
+import Data.Either
 
-newtype Parser e r = Parser ([e] -> [(r, [e])])
+newtype Parser e r = Parser ([e] -> [Either (r, [e]) String])
 
-parse :: Parser e r -> [e] -> [(r, [e])]
+parse :: Parser e r -> [e] -> [Either (r, [e]) String]
 parse (Parser parseFunction) = parseFunction
 
 instance Functor (Parser e) where
@@ -15,35 +16,43 @@ instance Applicative (Parser e) where
   (<*>) = ap
 
 instance Monad (Parser e) where
-  return r = Parser (\cs -> [(r, cs)])
-  p >>= k = Parser (concatMap (\(a, cs) -> parse (k a) cs) . parse p)
+  return r = Parser (\cs -> [Left (r, cs)])
+  p >>= k = Parser parser
+    where
+      parser cs
+        | all isRight res = res
+        | otherwise = filter isLeft res
+        where
+          res = concatMap f (parse p cs)
+          f (Left (a, cs')) = parse (k a) cs'
+          f (Right err) = [Right err]
 
 -- | a parser that consume the first element or fails
 next :: Parser e e
 next = Parser f
   where
-    f [] = []
-    f (c : cs) = [(c, cs)]
+    f [] = [Right "EOF"]
+    f (c : cs) = [Left (c, cs)]
 
 -- | a parser that consume the first n elements or fails
 takes :: Int -> Parser e [e]
 takes n = Parser f
   where
     f xs
-      | length xs >= n = [splitAt n xs]
-      | otherwise = []
+      | length xs >= n = [Left (splitAt n xs)]
+      | otherwise = [Right "EOF"]
 
 -- | a parser that consume all the input and returns it
-takeAll ::Parser e [e]
-takeAll = Parser (\cs -> [(cs, [])])
+takeAll :: Parser e [e]
+takeAll = Parser (\cs -> [Left (cs, [])])
 
 -- | a parser that checks if there are at least n elements or fails
 peeks :: Int -> Parser e [e]
 peeks n = Parser f
   where
     f xs
-      | length xs >= n = [(take n xs, xs)]
-      | otherwise = []
+      | length xs >= n = [Left (take n xs, xs)]
+      | otherwise = [Right "EOF"]
 
 -- | a parser that skips the first n elements or fails
 skip :: Int -> Parser e ()
@@ -51,15 +60,15 @@ skip n = do _ <- takes n; return ()
 
 -- | a parser that always fails
 empty :: Parser e r
-empty = Parser (const [])
+empty = Parser (const [Right "Failure"])
 
 -- | a parser which is always successful and consume no input
 continue :: Parser e ()
-continue = Parser (\cs -> [((), cs)])
+continue = Parser (\cs -> [Left ((), cs)])
 
 -- | a parser which is always successful and consume no input
 continueWith :: r -> Parser e r
-continueWith result = Parser (\cs -> [(result, cs)])
+continueWith result = Parser (\cs -> [Left (result, cs)])
 
 -- | combine results of two parsers
 (+++) :: Parser e r -> Parser e r -> Parser e r
@@ -97,15 +106,15 @@ check False = empty
 
 -- | continue if the Maybe is defined, otherwise an empty parser is returned
 get :: Maybe a -> Parser e a
-get (Just a) = Parser (\cs -> [(a, cs)])
+get (Just a) = Parser (\cs -> [Left (a, cs)])
 get Nothing = empty
 
 -- | check if the input is empty
 isAtEOF :: Parser e ()
 isAtEOF = Parser f
   where
-    f [] = [((), [])]
-    f _ = []
+    f [] = [Left ((), [])]
+    f _ = [Right "expected EOF"]
 
 -- | The result of the first parser is given as input to the second. Only the first parser consume the original input.
 (>->) :: Parser e [e] -> Parser e r -> Parser e r
@@ -113,6 +122,8 @@ isAtEOF = Parser f
   where
     f bits
       | null results = []
-      | otherwise = zip (map fst $ concatMap (parse second . fst) results) (map snd results)
+      | otherwise = map Left $ zip (map fst $ concatMap (lefts . parse second . fst) results) (map snd results)
       where
-        results = parse first bits
+        results = lefts $ parse first bits
+        
+
