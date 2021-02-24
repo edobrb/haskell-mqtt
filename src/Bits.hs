@@ -3,6 +3,7 @@ module Bits where
 import Data.Bits (shiftL)
 import Data.List.Split
 import Data.Word (Word8)
+import qualified Data.ByteString as BS
 
 type Bit = Bool
 
@@ -62,6 +63,12 @@ bitsToWord8 bits = f $ reverse bits
     f [] = 0
     f (True : cs) = 1 + (f cs * 2)
     f (False : cs) = f cs * 2
+
+fromByteString :: BS.ByteString -> [Bit]
+fromByteString bs = Prelude.concatMap (padTo 8 . toBits) (BS.unpack bs)
+
+toByteString :: [Bit] -> BS.ByteString
+toByteString bits = BS.pack  $ bitsToWords bits
 
 padTo :: Int -> [Bit] -> [Bit]
 padTo n xs

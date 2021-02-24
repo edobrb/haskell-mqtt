@@ -29,9 +29,11 @@ library
   exposed-modules:
       Bits
       CommonPacketParser
-      Lib
+      CommonPacketFactory
       MonadicParser
       PacketParser
+      PacketFactory
+      Test
       Packets
       Utils
   other-modules:

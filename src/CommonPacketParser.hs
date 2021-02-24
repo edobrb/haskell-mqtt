@@ -37,12 +37,7 @@ variableLength = do
 takeBodyBits :: Parser Bit [Bit]
 takeBodyBits = do l <- variableLength; takes (l * 8)
 
-header :: [Bit] -> Parser Bit Packet -> Parser Bit Packet
-header fixed = (>->) h
-  where
-    h = do
-      _ <- exacts fixed
-      takeBodyBits
+
 
 string :: Parser Bit String
 string = do bits <- payloadData; return (UTF8.decode $ bitsToWords bits)

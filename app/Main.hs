@@ -1,7 +1,5 @@
 module Main where
-
-import Lib
-import Packets
+import Test
 
 main :: IO ()
-main = print lol
+main = print  (checkBuildAndParse connectPacket1)
